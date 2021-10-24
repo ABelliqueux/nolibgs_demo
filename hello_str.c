@@ -23,9 +23,8 @@
 #define SCREENYRES 240           // Screen height : If VMODE is 0 = 240, if VMODE is 1 = 256 
 #define CENTERX SCREENXRES/2    // Center of screen on x 
 #define CENTERY SCREENYRES/2    // Center of screen on y
-#define MARGINX 8                // margins for text display
-#define MARGINY 16
-#define FONTSIZE 8 * 7           // Text Field Height
+#define FONTX   960
+#define FONTY   0
 #define OTLEN 8 
 DISPENV disp[2];                 // Double buffered DISPENV and DRAWENV
 DRAWENV draw[2];
@@ -44,10 +43,39 @@ uint8_t drawMenu = 0;
 u_long * nextFrame = 0;
 // Ring buffer frame address
 u_long * frameAddr = 0;
+
 void init(void);
+void FntColor(CVECTOR fgcol, CVECTOR bgcol );
 void display(void);
 void drawBG(void);
 void checkPad(void);
+
+typedef struct OVERLAY {
+  char filename[0x7c];
+  int (*main)();
+  char commandline[0x180];
+  char title[0xc];
+} OVERLAY;
+
+OVERLAY menu_items[1] = {
+    {"\\HELLO.OVL;1", 0, "", "0123456789AB"}
+};
+
+CVECTOR fntColor = { 115, 215, 45 };
+CVECTOR fntColorBG = { 0, 0, 0 };
+void FntColor(CVECTOR fgcol, CVECTOR bgcol )
+{
+    // The debug font clut is at tx, ty + 128
+    // tx = bg color
+    // tx + 1 = fg color
+    // We can override the color by drawing a rect at these coordinates
+    // 
+    RECT fg = { FONTX+1, FONTY + 128, 1, 1 };
+    RECT bg = { FONTX, FONTY + 128, 1, 1 };
+    ClearImage(&fg, fgcol.r, fgcol.g, fgcol.b);
+    ClearImage(&bg, bgcol.r, bgcol.g, bgcol.b);
+    
+}
 
 void init(void)
 {
@@ -73,8 +101,9 @@ void init(void)
     draw[1].isbg = 1;
     PutDispEnv(&disp[db]);          // set the disp and draw environnments
     PutDrawEnv(&draw[db]);
-    FntLoad(960, 0);                // Load font to vram at 960,0(+128)
-    FntOpen(112, 168, 48, 16, 0, 20 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    FntLoad(FONTX, FONTY);                // Load font to vram at 960,0(+128)
+    FntOpen(106, 166, 48, 20, 0, 12 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    FntColor(fntColor, fntColorBG);
 }
 void display(void)
 {
@@ -156,6 +185,17 @@ int main() {
         while ( curStr->endPlayback == 0)
         {   
             playSTR(&curStr);
+            if ( !curStr->channel )
+            {
+                FntPrint("%s", menu_items[0].title);
+                if ( sectorHeader->frameCount > 5 )
+                {
+                    FntFlush(-1);
+                } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
+                {
+                    FntFlush(-1);
+                }
+            }
             display();
         }
     }

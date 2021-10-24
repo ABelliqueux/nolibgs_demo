@@ -45,10 +45,10 @@ void resetSTR(STR * str)
 void switchStrCh(STR ** str)
 {
     // Switch current STR channel
-    //~ ramsyscall_printf("p0: %p - %d - ", *str, (*str)->channel);
+    ramsyscall_printf("p0: %p - %d - ", *str, (*str)->channel);
     sectorHeader->frameCount = 0;
     *str = &menu[!((*str)->channel)];
-    //~ ramsyscall_printf("p1: %p\n", *str);
+    ramsyscall_printf("p1: %p\n", *str);
     StSetChannel( (*str)->channel );
     (*str)->endPlayback = 1;
 }
@@ -139,15 +139,15 @@ void playSTR(STR ** str)
             drawMenu = 1;
         }
     }
-    if ( (!(*str)->channel) )
-    {
-        FntPrint("Hello menu!\n");
-        if ( sectorHeader->frameCount > 5 )
-        {
-            FntFlush(-1);
-        } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
-        {
-            FntFlush(-1);
-        }
-    }
+    //~ if ( (!(*str)->channel) )
+    //~ {
+        //~ FntPrint("Hello menu!\n");
+        //~ if ( sectorHeader->frameCount > 5 )
+        //~ {
+            //~ FntFlush(-1);
+        //~ } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
+        //~ {
+            //~ FntFlush(-1);
+        //~ }
+    //~ }
 }
