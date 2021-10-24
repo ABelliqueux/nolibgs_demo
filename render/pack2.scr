@@ -1,0 +1,5 @@
+Pack2ch(
+	z:\home\arthus\build\psxdev\nolibgs_demo\render\bg_only_i.str,			 FALSE,			# Output file name(Fn), Subheader(Sub)
+	z:\home\arthus\build\psxdev\nolibgs_demo\render\bg_only_1_mc.str,     	 FALSE,	0,	2,	# ch0; Fn,sub,TermType,TermLength
+	z:\home\arthus\build\psxdev\nolibgs_demo\render\bg_only_mc.str,			 FALSE,	0,	2	# ch1; Fn sub,TermType,TermLength
+);

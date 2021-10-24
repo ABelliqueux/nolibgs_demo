@@ -86,7 +86,7 @@
             <!-- Stores system.txt as system.cnf -->
             <file name="system.cnf" type="data" source="system.cnf"/>
             <file name="SCES_313.37"   type="data" source="hello_str.ps-exe"/>
-            <file name="MENU.STR" type="str" source="render/bg_only_mc.str"/>
+            <file name="MENU.STR" type="str" source="render/menu.str"/>
 
             <dummy sectors="1024"/>
             
