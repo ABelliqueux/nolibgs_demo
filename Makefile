@@ -9,5 +9,6 @@ cleansub:
 TARGET = hello_str
 
 SRCS = hello_str.c \
+src/str.c \
 
 include common.mk 

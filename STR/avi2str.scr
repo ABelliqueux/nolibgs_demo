@@ -1,0 +1,26 @@
+Avi2strMdecV(
+	.\idle_loop_mc.avi,
+	.\idle_loop_mc.str,
+	x2,		# CD-ROM speed
+	15fps,		# Frame rate
+	2,		# Number of channels
+	2,		# MDEC version
+    FALSE    # Leap sector
+);
+
+Avi2strMdecV(
+	.\transition_mc.avi,
+	.\transition_mc.str,
+	x2,		# CD-ROM speed
+	15fps,		# Frame rate
+	2,		# Number of channels
+	2,		# MDEC version
+    FALSE    # Leap sector
+);
+
+
+Pack2ch(
+	.\menu.str,			 FALSE,			# Output file name(Fn), Subheader(Sub)
+	.\idle_loop_mc.str,	 FALSE,	0,	0,	# ch0; Fn,sub,TermType,TermLength
+	.\transition_mc.str,	 FALSE,	0,	0	# ch1; Fn sub,TermType,TermLength
+);
