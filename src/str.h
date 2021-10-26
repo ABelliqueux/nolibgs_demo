@@ -10,13 +10,14 @@
 // CODEC library
 #include <libpress.h>
 // printf
-#include "../../nolibgs_hello_worlds/thirdparty/nugget/common/syscalls/syscalls.h"
+//~ #include "../../nolibgs_hello_worlds/thirdparty/nugget/common/syscalls/syscalls.h"
+//~ #define printf ramsyscall_printf
 #define SCREENXRES 320          
 #define SCREENYRES 240          
 #define STR_POS_X SCREENXRES
 #define STR_POS_Y 0
 // Ring Buffer size (reduce if flickering occurs)
-#define RING_SIZE   16  
+#define RING_SIZE   24  
 #define PPW         1
 #define DCT_MODE    2
 typedef struct STR {

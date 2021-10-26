@@ -10,5 +10,8 @@ TARGET = hello_str
 
 SRCS = hello_str.c \
 src/str.c \
+src/mod.c \
+src/modplayer.c \
+HIT/shine.hit \
 
 include common.mk 

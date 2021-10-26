@@ -14,9 +14,10 @@
 // CODEC library
 #include <libpress.h>
 // printf
-#include "../nolibgs_hello_worlds/thirdparty/nugget/common/syscalls/syscalls.h"
+//~ #include "../nolibgs_hello_worlds/thirdparty/nugget/common/syscalls/syscalls.h"
 // str playback
 #include "src/str.h"
+#include "src/mod.h"
 
 #define VMODE 0                 // Video Mode : 0 : NTSC, 1: PAL
 #define SCREENXRES 320          // Screen width
@@ -109,6 +110,7 @@ void display(void)
 {
     DrawSync(0);                    // Wait for all drawing to terminate
     VSync(0);                       // Wait for the next vertical blank
+    //~ checkMusic();
     PutDispEnv(&disp[db]);          // set alternate disp and draw environnments
     PutDrawEnv(&draw[db]);  
     DrawOTag(&ot[db][OTLEN - 1]);
@@ -153,55 +155,6 @@ void drawBG(void)
     addPrim(ot[db], poly);                         // add poly to the Ordering table        
     nextpri += sizeof(POLY_FT4);                    // increment nextpri address with size of a POLY_F4 struct 
 }
-int main() {
-    curStr = &(menu[0]);
-    // Set pointers to the relevant buffer addresses
-    u_long * curVLCptr = &VlcBuff[0];
-    u_short * curIMGptr = &ImgBuff[0];
-    
-    init();
-    PadInit(0);
-    VSyncCallback(checkPad);
-    // Init CDrom system
-    CdInit();
-    // Init MDEC and load STR
-    initSTR(curStr); 
-    // Set Channel
-    StSetChannel( curStr->channel );
-    // Main loop
-    while (1) {
-        // Only display background STR if drawMenu is set
-        if (drawMenu)
-        {               
-            SetDispMask(1);
-            drawBG();
-        }
-        // While end of str is not reached, play it
-        if (curStr->endPlayback == 1)
-        {   
-            // Replay STR
-            resetSTR(curStr);
-        }
-        while ( curStr->endPlayback == 0)
-        {   
-            playSTR(&curStr);
-            if ( !curStr->channel )
-            {
-                FntPrint("%s", menu_items[0].title);
-                if ( sectorHeader->frameCount > 5 )
-                {
-                    FntFlush(-1);
-                } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
-                {
-                    FntFlush(-1);
-                }
-            }
-            display();
-        }
-    }
-    return 0;
-}
-
 void checkPad(void)
 {
     u_short pad;
@@ -222,4 +175,74 @@ void checkPad(void)
     {
         oldPad = pad;
     }
+}
+int main() {
+    curStr = &(menu[0]);
+    // Set pointers to the relevant buffer addresses
+    u_long * curVLCptr = &VlcBuff[0];
+    u_short * curIMGptr = &ImgBuff[0];
+    
+    init();
+    PadInit(0);
+    VSyncCallback(checkPad);
+    // Init CDrom system
+    CdInit();
+    // Init MDEC and load STR
+    initSTR(curStr); 
+    // Set Channel
+    StSetChannel( curStr->channel );
+    // Main loop
+    //~ loadMod();
+    printf("Loading MOD:\'%s\'\n", HITFILE);
+    // We are going to use timer1 and its hblank counter to tell us when
+    // we need to call MOD_Poll again. For this, we need timer1 to be
+    // counting hblanks instead of the system clock.
+    COUNTERS[1].mode = 0x0100;
+    MOD_Load((struct MODFileFormat*)HITFILE);
+    printf("%02d Channels, %02d Orders\n", MOD_Channels, MOD_SongLength);
+    unsigned row = 0xffffffff;
+    unsigned order = 0xffffffff;
+    unsigned pattern = 0xffffffff;
+    //~ uint16_t s_nextCounter = 0;
+    // Giving our initial counter a proper value.
+    s_nextCounter = COUNTERS[1].value + MOD_hblanks;
+    while (1) 
+    //~ while (VSync(-1)) 
+    {
+        playMod(row, order, pattern);
+        checkMusic();
+        // Only display background STR if drawMenu is set
+        if (drawMenu)
+        {               
+            SetDispMask(1);
+            drawBG();
+        }
+        // While end of str is not reached, play it
+        if (curStr->endPlayback == 1)
+        {   
+            // Replay STR
+            resetSTR(curStr);
+        }
+        if ( curStr->endPlayback == 0)
+        {   
+            playSTR(&curStr);
+            if ( !curStr->channel )
+            {
+                // Display title
+                FntPrint("%s", menu_items[0].title);
+                // Flickering text
+                if ( sectorHeader->frameCount > 5 )
+                {
+                    FntFlush(-1);
+                } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
+                {
+                    FntFlush(-1);
+                }
+            }
+        }
+        //~ playMod(row, order, pattern);
+        //~ waitVSync();
+        display();
+    }
+    return 0;
 }

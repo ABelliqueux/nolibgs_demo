@@ -45,16 +45,16 @@ void resetSTR(STR * str)
 void switchStrCh(STR ** str)
 {
     // Switch current STR channel
-    ramsyscall_printf("p0: %p - %d - ", *str, (*str)->channel);
+    printf("p0: %p - %d - ", *str, (*str)->channel);
     sectorHeader->frameCount = 0;
     *str = &menu[!((*str)->channel)];
-    ramsyscall_printf("p1: %p\n", *str);
+    printf("p1: %p\n", *str);
     StSetChannel( (*str)->channel );
     (*str)->endPlayback = 1;
 }
 void playSTR(STR ** str)
 {
-    //~ ramsyscall_printf("Frame %d / %d,ch: %d, p: %p, m0: %p, m1: %p\n", sectorHeader->frameCount, (*str)->length, (*str)->channel, str, &menu[0], &menu[1]);
+    //~ printf("Frame %d / %d,ch: %d, p: %p, m0: %p, m1: %p\n", sectorHeader->frameCount, (*str)->length, (*str)->channel, str, &menu[0], &menu[1]);
     // Use this area to draw the slices
     RECT curSlice = { STR_POS_X, 
                       STR_POS_Y,
@@ -139,15 +139,4 @@ void playSTR(STR ** str)
             drawMenu = 1;
         }
     }
-    //~ if ( (!(*str)->channel) )
-    //~ {
-        //~ FntPrint("Hello menu!\n");
-        //~ if ( sectorHeader->frameCount > 5 )
-        //~ {
-            //~ FntFlush(-1);
-        //~ } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
-        //~ {
-            //~ FntFlush(-1);
-        //~ }
-    //~ }
 }

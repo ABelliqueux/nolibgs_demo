@@ -51,3 +51,8 @@ endef
 # convert VAG files to bin
 %.o: %.vag
 	$(call OBJCOPYME)
+
+# convert HIT to bin
+%.o: %.hit
+	$(call OBJCOPYME)
+
