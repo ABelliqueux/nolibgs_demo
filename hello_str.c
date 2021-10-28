@@ -34,9 +34,11 @@ char primbuff[2][32768];     // double primitive buffer of length 32768 * 8 =  2
 char *nextpri = primbuff[0];       // pointer to the next primitive in primbuff. Initially, points to the first bit of primbuff[0]
 short db = 1;                    // index of which buffer is used, values 0, 1
 
-STR menu[2] = {
+STR menu[4] = {
     { "\\MENU.STR;1", 256, 240, 30, 0, 0 },
     { "\\MENU.STR;1", 256, 240, 30, 1, 0 },
+    { "\\MENU1.STR;1", 256, 240, 30, 0, 0 },
+    { "\\MENU1.STR;1", 256, 240, 30, 1, 0 },
 };
 STR * curStr;
 StHEADER * sectorHeader;
@@ -157,21 +159,51 @@ void drawBG(void)
 }
 void checkPad(void)
 {
-    u_short pad;
+    u_short pad = 0;
     static u_short oldPad;    
     pad = PadRead(0);
 
     if ( pad & PADLleft && !(oldPad & PADLleft) )
     {
         // Channel 1 is transition anim, only take input when !transition
-        if(curStr->channel != 1)
+        if ( curStr == &menu[IDLE] )
         {
-            ramsyscall_printf("Left: change channel\n");
-            switchStrCh(&curStr);
-            oldPad = pad;
+            ramsyscall_printf("Left\n");
+            // Switch sound
+            MOD_PlayNote(23, 12, 15, 63);
+            switchStr(&curStr, LEFT);
         }
+        oldPad = pad;
     }
     if ( !(pad & PADLleft) && oldPad & PADLleft )
+    {
+        oldPad = pad;
+    }
+    // Right
+    if ( pad & PADLright && !(oldPad & PADLright) )
+    {
+        // Channel 1 is transition anim, only take input when !transition
+        if( curStr == &menu[IDLE] )
+        {
+            ramsyscall_printf("Right\n");
+            // Switch sound
+            MOD_PlayNote(23, 12, 15, 63);
+            switchStr(&curStr, RIGHT);
+        }
+        oldPad = pad;
+    }
+    if ( !(pad & PADLright) && oldPad & PADLright )
+    {
+        oldPad = pad;
+    }
+    // Cross button
+    if ( pad & PADRdown && !(oldPad & PADRdown) )
+    {
+        // Select sound
+        MOD_PlayNote(22, 7, 15, 63);
+        oldPad = pad;
+    }
+    if ( !(pad & PADRdown) && oldPad & PADRdown )
     {
         oldPad = pad;
     }
@@ -191,26 +223,12 @@ int main() {
     initSTR(curStr); 
     // Set Channel
     StSetChannel( curStr->channel );
+    // Mod Playback
+    loadMod();
+    startMusic();
     // Main loop
-    //~ loadMod();
-    printf("Loading MOD:\'%s\'\n", HITFILE);
-    // We are going to use timer1 and its hblank counter to tell us when
-    // we need to call MOD_Poll again. For this, we need timer1 to be
-    // counting hblanks instead of the system clock.
-    COUNTERS[1].mode = 0x0100;
-    MOD_Load((struct MODFileFormat*)HITFILE);
-    printf("%02d Channels, %02d Orders\n", MOD_Channels, MOD_SongLength);
-    unsigned row = 0xffffffff;
-    unsigned order = 0xffffffff;
-    unsigned pattern = 0xffffffff;
-    //~ uint16_t s_nextCounter = 0;
-    // Giving our initial counter a proper value.
-    s_nextCounter = COUNTERS[1].value + MOD_hblanks;
     while (1) 
-    //~ while (VSync(-1)) 
     {
-        playMod(row, order, pattern);
-        checkMusic();
         // Only display background STR if drawMenu is set
         if (drawMenu)
         {               
@@ -240,9 +258,8 @@ int main() {
                 }
             }
         }
-        //~ playMod(row, order, pattern);
-        //~ waitVSync();
         display();
     }
     return 0;
 }
+

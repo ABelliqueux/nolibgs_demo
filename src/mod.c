@@ -1,91 +1,57 @@
-/*
-
-MIT License
-
-Copyright (c) 2021 PCSX-Redux authors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-*/
-
 #include "mod.h"
 
-uint16_t s_nextCounter = 0;
+long musicEvent;
+typedef struct SpuVoiceVolume {
+    short volL, volR;
+} SpuVoiceVolume;
 
-// Function to call periodically if we can't use interrupts for some reason.
-// If the code is running slower than the normal vsync speed, then you should
-// call this during your frame computation code, in order to make sure you're
-// not missing any tick.
-void checkMusic() {
-    if (((int16_t)(s_nextCounter - COUNTERS[1].value)) <= 0) {
-        printf("cnt: %d\n", s_nextCounter);
-        MOD_Poll();
-        s_nextCounter += MOD_hblanks;
-    }
+SpuVoiceVolume volumeState[24] = {0};
+
+// Playing a sound effect (aka mod note): https://discord.com/channels/642647820683444236/642848592754901033/898249196174458900 
+// Code by NicolasNoble : https://discord.com/channels/642647820683444236/663664210525290507/902624952715452436
+void loadMod() {
+    printf("Loading MOD:\'%s\'\n", HITFILE);
+    MOD_Load((struct MODFileFormat*)HITFILE);
+    printf("%02d Channels, %02d Orders\n", MOD_Channels, MOD_SongLength);
 }
 
-void waitVSync() {
-    int wasLocked = enterCriticalSection();
-    uint32_t imask = IMASK;
-
-    IMASK = imask | IRQ_VBLANK;
-
-    while ((IREG & IRQ_VBLANK) == 0) {
-        // Since our vsync is a kludge, we can't use the root counter IRQ
-        // mechanism to call MOD_Poll, and so we have to poll here, during
-        // vsync, for when our timer has passed the target value manually.
-
-        // We *could* set up the timer properly using the target value system,
-        // but this might make a few emulators sad. Beside, this is a perfectly
-        // valid and common solution.
-        checkMusic();
-    }
-    IREG &= ~IRQ_VBLANK;
-    IMASK = imask;
-    if (!wasLocked) leaveCriticalSection();
+void startMusic() {
+  ResetRCnt(RCntCNT1);
+  SetRCnt(RCntCNT1, MOD_hblanks, RCntMdINTR);
+  StartRCnt(RCntCNT1);
+  musicEvent = OpenEvent(RCntCNT1, EvSpINT, EvMdINTR, processMusic);
+  EnableEvent(musicEvent);
 }
 
-void playMod(unsigned row, unsigned order, unsigned pattern)
-{
-    if (row != MOD_CurrentRow || order != MOD_CurrentOrder || pattern != MOD_CurrentPattern) {
-            row = MOD_CurrentRow;
-            order = MOD_CurrentOrder;
-            pattern = MOD_CurrentPattern;
-            printf("Row: %02d, Order: %02d, Pattern: %02d\n", row, order, pattern);
-        }
+long processMusic() {
+    uint32_t old_hblanks = MOD_hblanks;
+    MOD_Poll();
+    uint32_t new_hblanks = MOD_hblanks;
+    if (old_hblanks != new_hblanks) SetRCnt(RCntCNT1, new_hblanks, RCntMdINTR);
+    return MOD_hblanks;
 }
 
-//~ void loadMod() {
-    //~ printf("Loading MOD:\'%s\'\n", HITFILE);
-    //~ // We are going to use timer1 and its hblank counter to tell us when
-    //~ // we need to call MOD_Poll again. For this, we need timer1 to be
-    //~ // counting hblanks instead of the system clock.
-    //~ COUNTERS[1].mode = 0x0100;
-    //~ MOD_Load((struct MODFileFormat*)HITFILE);
-    //~ printf("%02d Channels, %02d Orders\n", MOD_Channels, MOD_SongLength);
-    //~ unsigned row = 0xffffffff;
-    //~ unsigned order = 0xffffffff;
-    //~ unsigned pattern = 0xffffffff;
-    //~ // Giving our initial counter a proper value.
-    //~ s_nextCounter = COUNTERS[1].value + MOD_hblanks;
-    //~ while (1) {
-        //~ playMod(row, order, pattern);
-        //~ waitVSync();
-    //~ }
-//~ }
+void pauseMusic() {
+  for (unsigned i = 0; i < 24; i++) {
+    // Store current volume
+    SpuGetVoiceVolume(i, &(volumeState[i].volL), &(volumeState[i].volR) );
+    // Mute
+    SpuSetVoiceVolume(i, 0, 0);
+  }
+  DisableEvent(musicEvent);
+}
+
+void resumeMusic() {
+  for (unsigned i = 0; i < 24; i++) {
+    // Restore volume
+    SpuSetVoiceVolume(i, volumeState[i].volL, volumeState[i].volR );
+  }
+  EnableEvent(musicEvent);
+}
+
+void stopMusic() {
+  MOD_Silence();
+  StopRCnt(RCntCNT1);
+  DisableEvent(musicEvent);
+  CloseEvent(musicEvent);
+}

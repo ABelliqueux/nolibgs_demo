@@ -87,6 +87,7 @@
             <file name="system.cnf" type="data" source="system.cnf"/>
             <file name="SCES_313.37"   type="data" source="hello_str.ps-exe"/>
             <file name="MENU.STR" type="str" source="STR/menu.str"/>
+            <file name="MENU1.STR" type="str" source="STR/menu1.str"/>
 
             <dummy sectors="1024"/>
             

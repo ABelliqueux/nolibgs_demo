@@ -214,7 +214,7 @@ static void MOD_SetBPM(unsigned bpm) {
     MOD_hblanks = base / bpm;
 }
 
-static struct SPUChannelData s_channelData[24];
+struct SPUChannelData s_channelData[24];
 
 uint32_t MOD_Load(const struct MODFileFormat* module) {
     SPUInit();

@@ -17,7 +17,7 @@
 #define STR_POS_X SCREENXRES
 #define STR_POS_Y 0
 // Ring Buffer size (reduce if flickering occurs)
-#define RING_SIZE   24  
+#define RING_SIZE   32
 #define PPW         1
 #define DCT_MODE    2
 typedef struct STR {
@@ -27,7 +27,7 @@ typedef struct STR {
     uint8_t channel, endPlayback;
 } STR;
 // 2 channels STR: ch0 = idle loop, ch1 = transition anim
-extern STR menu[2];
+extern STR menu[4];
 // CD File descriptor
 extern CdlFILE STRfile;
 extern StHEADER * sectorHeader;
@@ -46,10 +46,17 @@ extern u_short * curIMGptr;
 extern u_long * nextFrame;
 // Ring buffer frame address
 extern u_long * frameAddr;
-
 extern uint8_t drawMenu;
 
+enum MENU_STATE 
+{
+    IDLE = 0,
+    LEFT = 1,
+    RIGHT = 3,
+};
+
+void loadCdFile(STR * str);
 void initSTR(STR * str);
 void resetSTR(STR * str);
 void playSTR(STR ** str);
-void switchStrCh(STR ** curStr);
+void switchStr(STR ** curStr, int strID);

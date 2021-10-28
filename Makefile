@@ -12,6 +12,6 @@ SRCS = hello_str.c \
 src/str.c \
 src/mod.c \
 src/modplayer.c \
-HIT/shine.hit \
+HIT/SHIN1.HIT \
 
 include common.mk 

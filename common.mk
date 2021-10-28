@@ -53,6 +53,6 @@ endef
 	$(call OBJCOPYME)
 
 # convert HIT to bin
-%.o: %.hit
+%.o: %.HIT
 	$(call OBJCOPYME)
 
