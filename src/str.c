@@ -35,6 +35,17 @@ void initSTR(STR * str)
     CdControl(CdlSetmode, &param, 0);
     loadCdFile(str);
 }
+
+void stopSTR()
+{
+    // Disable callback
+    DecDCToutCallback(0);
+    DecDCTReset(1);
+    // Release two interrupt functions CdDataCallback() and CdReadyCallback() hooked by CDRead2()
+    StUnSetRing();
+    // Put CDROM on pause at current position
+    //~ CdControlB(CdlPause, 0, 0);
+}
 void resetSTR(STR * str)
 {
     u_long * curVLCptr = &VlcBuff[0];
@@ -127,7 +138,6 @@ void playSTR(STR ** str)
             curSlice.y = STR_POS_Y;
         }
     }
-    
    // If the current frame's number is bigger than the number of frames in STR,
     // set the endPlayback flag.
     if ( sectorHeader->frameCount >= ((*str)->length - 1) )

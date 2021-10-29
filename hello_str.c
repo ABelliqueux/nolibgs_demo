@@ -1,33 +1,19 @@
 // The nolibgs 2021 demo disc !
-#include <sys/types.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <libgte.h>
-#include <libetc.h>
-#include <libgpu.h>
-// CD library
-#include <libcd.h>
-// CODEC library
-#include <libpress.h>
+#include "OVL/common.h"
 // str playback
 #include "src/str.h"
 #include "src/mod.h"
+#include "third_party/nugget/common/syscalls/syscalls.h"
+#define printf ramsyscall_printf
 
-#define VMODE 0                 // Video Mode : 0 : NTSC, 1: PAL
-#define SCREENXRES 320          // Screen width
-#define SCREENYRES 240           // Screen height : If VMODE is 0 = 240, if VMODE is 1 = 256 
-#define CENTERX SCREENXRES/2    // Center of screen on x 
-#define CENTERY SCREENYRES/2    // Center of screen on y
-#define FONTX   960
-#define FONTY   0
-#define OTLEN 8 
 DISPENV disp[2];                 // Double buffered DISPENV and DRAWENV
 DRAWENV draw[2];
-u_long ot[2][OTLEN];               // double ordering table of length 8 * 32 = 256 bits / 32 bytes
-char primbuff[2][32768];     // double primitive buffer of length 32768 * 8 =  262.144 bits / 32,768 Kbytes
-char *nextpri = primbuff[0];       // pointer to the next primitive in primbuff. Initially, points to the first bit of primbuff[0]
-short db = 1;                    // index of which buffer is used, values 0, 1
+char primbuff[2][32768];         // double primitive buffer of length 32768 * 8 =  262.144 bits / 32,768 Kbytes
+u_long ot[2][OTLEN];             // double ordering table of length 8 * 32 = 256 bits / 32 bytes
+char *nextpri = primbuff[0];     // pointer to the next primitive in primbuff. Initially, points to the first bit of primbuff[0]
+uint8_t db = 1;                    // index of which buffer is used, values 0, 1
 
+// STR playback
 STR menu[4] = {
     { "\\MENU.STR;1", 256, 240, 30, 0, 0 },
     { "\\MENU.STR;1", 256, 240, 30, 1, 0 },
@@ -41,11 +27,8 @@ u_long * nextFrame = 0;
 // Ring buffer frame address
 u_long * frameAddr = 0;
 
-void init(void);
-void FntColor(CVECTOR fgcol, CVECTOR bgcol );
-void display(void);
-void drawBG(void);
-void checkPad(void);
+// OVERLAYS
+extern u_long load_all_overlays_here;
 
 typedef struct OVERLAY {
   char filename[0x7c];
@@ -54,12 +37,40 @@ typedef struct OVERLAY {
   char title[0xc];
 } OVERLAY;
 
-OVERLAY menu_items[1] = {
-    {"\\HELLO.OVL;1", 0, "", "0123456789AB"}
+int ovl_main_hello();
+int ovl_main_tile();
+int ovl_main_poly();
+
+OVERLAY menu_items[] = {
+    {"\\HELLO.OVL;1", ovl_main_hello, "", "HELLO WORLD!"},
+    {"\\TILE.OVL;1", ovl_main_tile, "", "HELLO TILE!"},
+    {"\\POLY.OVL;1", ovl_main_poly, "", "HELLO POLY!"},
 };
 
+enum OverlayNumber next_overlay = MOTHERSHIP;
+enum OverlayNumber prev_overlay = MOTHERSHIP;
+
+CVECTOR BGcolor = { 24, 108, 76 };
+uint8_t loadOVL = 0;
+
+// FONT COLOR
 CVECTOR fntColor = { 115, 215, 45 };
 CVECTOR fntColorBG = { 0, 0, 0 };
+
+// FUNCTIONS
+
+void FntColor(CVECTOR fgcol, CVECTOR bgcol );
+void init(void);
+void display(void);
+void drawBG(void);
+void checkPad(void);
+int loadOverlayAndStart(OVERLAY *);
+void EmptyOTag(u_long ot[2][OTLEN], char  primbuff[2][32768], char * nextpri );
+
+void (*dispp) (void);
+
+int CDreadOK = 0;
+
 void FntColor(CVECTOR fgcol, CVECTOR bgcol )
 {
     // The debug font clut is at tx, ty + 128
@@ -78,6 +89,7 @@ void init(void)
 {
     ResetCallback();
     ResetGraph(0);                 // Initialize drawing engine with a complete reset (0)
+    
     InitGeom();
     SetGeomOffset(CENTERX,CENTERY);
     SetGeomScreen(CENTERX);
@@ -91,22 +103,22 @@ void init(void)
         disp[0].disp.y = 8;
         disp[1].disp.y = 8;
     #endif
-    SetDispMask(0);                 // Display on screen    
-    setRGB0(&draw[0], 0, 0, 0); // set color for first draw area
-    setRGB0(&draw[1], 0, 0, 0); // set color for second draw area
+    SetDispMask(1);                 // Display on screen    
+    setRGB0(&draw[0], BGcolor.r, BGcolor.g, BGcolor.b); // set color for first draw area
+    setRGB0(&draw[1], BGcolor.r, BGcolor.g, BGcolor.b); // set color for second draw area
     draw[0].isbg = 1;               // set mask for draw areas. 1 means repainting the area with the RGB color each frame 
     draw[1].isbg = 1;
     PutDispEnv(&disp[db]);          // set the disp and draw environnments
     PutDrawEnv(&draw[db]);
     FntLoad(FONTX, FONTY);                // Load font to vram at 960,0(+128)
-    FntOpen(106, 166, 48, 20, 0, 12 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    //~ FntOpen(106, 166, 48, 20, 0, 12 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    FntOpen(106, 166, 248, 120, 0, 120 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
     FntColor(fntColor, fntColorBG);
 }
 void display(void)
 {
     DrawSync(0);                    // Wait for all drawing to terminate
     VSync(0);                       // Wait for the next vertical blank
-    //~ checkMusic();
     PutDispEnv(&disp[db]);          // set alternate disp and draw environnments
     PutDrawEnv(&draw[db]);  
     DrawOTag(&ot[db][OTLEN - 1]);
@@ -151,10 +163,46 @@ void drawBG(void)
     addPrim(ot[db], poly);                         // add poly to the Ordering table        
     nextpri += sizeof(POLY_FT4);                    // increment nextpri address with size of a POLY_F4 struct 
 }
+void clearVRAM(void)
+{
+    RECT vram = {0,0,1024,512};
+    ClearImage(&vram,0,0,0);
+}
+int loadOverlayAndStart(OVERLAY * overlay)
+{
+    int CDreadResult = 0;
+    int next_ovl = -1;
+    // Load overlay file
+    CDreadResult = CdReadFile(overlay->filename, &load_all_overlays_here, 0);
+	CdReadSync(0, 0);
+    printf( "CD read: %d", CDreadResult);
+    // If file loaded sucessfully
+    if (CDreadResult)
+    {
+        clearVRAM();
+        //~ StopCallback(); 
+        ResetGraph(3);
+        // Execute
+        next_ovl = overlay->main();
+        EmptyOTag(&ot[db], &primbuff[db], nextpri);
+        setRGB(&BGcolor, 0, 150, 255);
+        init();
+    }
+    return next_ovl;
+}
+void EmptyOTag(u_long ot[2][OTLEN], char primbuff[2][32768], char * nextpri )
+{
+    for (uint16_t p; p < OTLEN; p++)
+    {
+        ot[0][p] = 0;
+        ot[1][p] = 0;
+    }
+    nextpri = primbuff[!db];
+}
 void checkPad(void)
 {
-    u_short pad = 0;
-    static u_short oldPad;    
+    u_long pad = 0;
+    static u_long oldPad;    
     pad = PadRead(0);
 
     if ( pad & PADLleft && !(oldPad & PADLleft) )
@@ -195,6 +243,13 @@ void checkPad(void)
     {
         // Select sound
         MOD_PlayNote(22, 7, 15, 63);
+        //~ stopSTR();
+        //~ stopMusic();
+        //~ drawMenu = 0;
+        //~ next_overlay = OVERLAY_HELLO;
+        //~ next_overlay = OVERLAY_HELLO;
+        //~ prev_overlay = next_overlay;
+        //~ next_overlay = loadOverlayAndStart(&menu_items[next_overlay]);
         oldPad = pad;
     }
     if ( !(pad & PADRdown) && oldPad & PADRdown )
@@ -203,10 +258,14 @@ void checkPad(void)
     }
 }
 int main() {
+    int t = 0;
+    // STR
     curStr = &(menu[0]);
     // Set pointers to the relevant buffer addresses
     u_long * curVLCptr = &VlcBuff[0];
     u_short * curIMGptr = &ImgBuff[0];
+    // OVL
+    prev_overlay = next_overlay; 
     
     init();
     PadInit(0);
@@ -223,35 +282,50 @@ int main() {
     // Main loop
     while (1) 
     {
-        // Only display background STR if drawMenu is set
+        //~ // Only display background STR if drawMenu is set
         if (drawMenu)
         {               
-            SetDispMask(1);
+            //~ SetDispMask(1);
             drawBG();
         }
-        // While end of str is not reached, play it
-        if (curStr->endPlayback == 1)
+        //~ // While end of str is not reached, play it
+        if (curStr->endPlayback == 1 && next_overlay == MOTHERSHIP )
         {   
             // Replay STR
             resetSTR(curStr);
         }
-        if ( curStr->endPlayback == 0)
+        if ( curStr->endPlayback == 0 )
         {   
             playSTR(&curStr);
-            if ( !curStr->channel )
-            {
-                // Display title
-                FntPrint("%s", menu_items[0].title);
-                // Flickering text
-                if ( sectorHeader->frameCount > 5 )
-                {
-                    FntFlush(-1);
-                } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
-                {
-                    FntFlush(-1);
-                }
-            }
+            //~ if ( !curStr->channel && drawMenu )
+            //~ {
+                //~ // Display title
+                //~ FntPrint("%s", menu_items[0].title);
+                //~ // Flickering text
+                //~ if ( sectorHeader->frameCount > 5 )
+                //~ {
+                    //~ FntFlush(-1);
+                //~ } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
+                //~ {
+                    //~ FntFlush(-1);
+                //~ }
+            //~ }
         }
+        //~ display();
+        if (t == 100){
+            drawMenu = 0;
+            curStr->endPlayback = 1;
+            stopSTR();
+            next_overlay = OVERLAY_HELLO;
+        }
+        if (next_overlay != -1 && next_overlay != prev_overlay){
+            prev_overlay = next_overlay;
+            next_overlay = loadOverlayAndStart(&menu_items[next_overlay]);
+            t = 0;
+        }
+        t++;
+        FntPrint("Mothership:  %d\nOvl: %d %d", t, prev_overlay, next_overlay);
+        FntFlush(-1);
         display();
     }
     return 0;

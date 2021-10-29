@@ -88,6 +88,9 @@
             <file name="SCES_313.37"   type="data" source="hello_str.ps-exe"/>
             <file name="MENU.STR" type="str" source="STR/menu.str"/>
             <file name="MENU1.STR" type="str" source="STR/menu1.str"/>
+            <file name="POLY.OVL"   type="data" source="Overlay.ovly0"/>
+            <file name="TILE.OVL"   type="data" source="Overlay.ovly1"/>
+            <file name="HELLO.OVL"   type="data" source="Overlay.ovly2"/>
 
             <dummy sectors="1024"/>
             

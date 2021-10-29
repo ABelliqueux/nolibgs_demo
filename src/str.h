@@ -1,19 +1,6 @@
 #pragma once
-#include <sys/types.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <libgte.h>
-#include <libetc.h>
-#include <libgpu.h>
-// CD library
-#include <libcd.h>
-// CODEC library
-#include <libpress.h>
-// printf
-//~ #include "../../nolibgs_hello_worlds/thirdparty/nugget/common/syscalls/syscalls.h"
-//~ #define printf ramsyscall_printf
-#define SCREENXRES 320          
-#define SCREENYRES 240          
+#include "../OVL/common.h"
+
 #define STR_POS_X SCREENXRES
 #define STR_POS_Y 0
 // Ring Buffer size (reduce if flickering occurs)
@@ -57,6 +44,7 @@ enum MENU_STATE
 
 void loadCdFile(STR * str);
 void initSTR(STR * str);
+void stopSTR();
 void resetSTR(STR * str);
 void playSTR(STR ** str);
 void switchStr(STR ** curStr, int strID);
