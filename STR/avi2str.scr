@@ -1,5 +1,5 @@
 Avi2strMdecV(
-	.\idle_loop_mc.avi,
+	.\render\idle_loop_mc.avi,
 	.\idle_loop_mc.str,
 	x2,		# CD-ROM speed
 	15fps,		# Frame rate
@@ -9,7 +9,7 @@ Avi2strMdecV(
 );
 
 Avi2strMdecV(
-	.\transition_mc.avi,
+	.\render\transition_mc.avi,
 	.\transition_mc.str,
 	x2,		# CD-ROM speed
 	15fps,		# Frame rate
@@ -18,9 +18,31 @@ Avi2strMdecV(
     FALSE    # Leap sector
 );
 
+Avi2strMdecV(
+	.\render\transition_reverse_mc.avi,
+	.\transition_reverse_mc.str,
+	x2,		# CD-ROM speed
+	15fps,		# Frame rate
+	2,		# Number of channels
+	2,		# MDEC version
+    FALSE    # Leap sector
+);
+
+#Avi2strMdecC(
+#.\empty_mc.avi,
+#.\empty_mc.str,
+#2048bytes,
+#VariableFrameSize,
+#2
+#);
 
 Pack2ch(
-	.\menu.str,			 FALSE,			# Output file name(Fn), Subheader(Sub)
-	.\idle_loop_mc.str,	 FALSE,	0,	0,	# ch0; Fn,sub,TermType,TermLength
-	.\transition_mc.str,	 FALSE,	0,	0	# ch1; Fn sub,TermType,TermLength
+	.\menu.str,			 	 		 FALSE,			# Output file name(Fn), Subheader(Sub)
+	.\idle_loop_mc.str,	 	 		 FALSE,	0,	0,	# ch0; Fn,sub,TermType,TermLength
+	.\transition_mc.str,	 		 FALSE,	0,	0	# ch1; Fn sub,TermType,TermLength
+);
+Pack2ch(
+	.\menu1.str,			 	 	FALSE,			# Output file name(Fn), Subheader(Sub)
+	.\idle_loop_mc.str,	 	 		FALSE,	0,	0,	# ch0; Fn,sub,TermType,TermLength
+	.\transition_reverse_mc.str,	FALSE,	0,	0	# ch1; Fn sub,TermType,TermLength
 );

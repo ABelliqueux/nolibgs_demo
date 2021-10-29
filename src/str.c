@@ -1,6 +1,7 @@
 #include "str.h"
 
 CdlFILE STRfile;
+
 // Parameter we want to set the CDROM with
 u_char param = CdlModeSpeed;
 // Buffers total ~110KB in memory 
@@ -15,39 +16,44 @@ u_short ImgBuff[ 16 * SCREENYRES];
 u_long * curVLCptr = &VlcBuff[0];
 u_short * curIMGptr = &ImgBuff[0];
 
-void initSTR(STR * str)
+void loadCdFile(STR * str)
 {
-    DecDCTReset(0);
-    StSetRing(RingBuff, RING_SIZE);
-    StSetStream(0, 1, str->length, 0, 0);
     if ( CdSearchFile(&STRfile, str->name) == 0 ) {
         FntPrint("File not found :%s\n", str->name);
     }
     CdControl(CdlSetloc, (u_char *)&STRfile.pos, 0);
     //CdControl(CdlSetmode, &param, 0);
     CdRead2(CdlModeStream|CdlModeSpeed);
-    
+}
+
+void initSTR(STR * str)
+{
+    DecDCTReset(0);
+    StSetRing(RingBuff, RING_SIZE);
+    StSetStream(0, 1, str->length, 0, 0);
+    // Set CD mode to CdlModeSpeed
+    CdControl(CdlSetmode, &param, 0);
+    loadCdFile(str);
 }
 void resetSTR(STR * str)
 {
     u_long * curVLCptr = &VlcBuff[0];
     u_short * curIMGptr = &ImgBuff[0];
-    // Set the seek target position
-    CdControl(CdlSetloc, (u_char *)&STRfile.pos, 0);
-    // Set CD mode to CdlModeSpeed
-    CdControl(CdlSetmode, &param, 0);
-    // Read from CD at position &STRfile.pos
-    // Enable streaming, double speed and ADPCM playback
-    CdRead2(CdlModeStream|CdlModeSpeed|CdlModeRT);
+    loadCdFile(str);
+    //~ // Set the seek target position
+    //~ CdControl(CdlSetloc, (u_char *)&STRfile.pos, 0);
+    //~ // Read from CD at position &STRfile.pos
+    //~ // Enable streaming, double speed 
+    //~ CdRead2(CdlModeStream|CdlModeSpeed);
     str->endPlayback = 0;
 }
 
-void switchStrCh(STR ** str)
+void switchStr(STR ** str, int strID)
 {
-    // Switch current STR channel
+    // Switch current STR
     printf("p0: %p - %d - ", *str, (*str)->channel);
     sectorHeader->frameCount = 0;
-    *str = &menu[!((*str)->channel)];
+    *str = &menu[strID];
     printf("p1: %p\n", *str);
     StSetChannel( (*str)->channel );
     (*str)->endPlayback = 1;
@@ -129,7 +135,7 @@ void playSTR(STR ** str)
         // If on channel 1, go back to channel 0 after 30 frames
         if ((*str)->channel)
         {
-            switchStrCh(str);
+            switchStr(str, IDLE);
         } else {
         // if on channel 0, set end flag for loop
             (*str)->endPlayback = 1;

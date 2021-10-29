@@ -1,8 +1,4 @@
-// Stream a STR file from CD, decompress and play it.
-// Schnappy 07-2021
-// based on Lameguy64 strplay library : http://www.psxdev.net/forum/viewtopic.php?t=507
-// Original PsyQ sample code : /psyq/addons/cd/MOVIE
-// Video to STR conversion : https://github.com/ABelliqueux/nolibgs_hello_worlds/tree/main/hello_str
+// The nolibgs 2021 demo disc !
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -13,11 +9,9 @@
 #include <libcd.h>
 // CODEC library
 #include <libpress.h>
-// printf
-#include "../nolibgs_hello_worlds/thirdparty/nugget/common/syscalls/syscalls.h"
-#define printf ramsyscall_printf
 // str playback
 #include "src/str.h"
+#include "src/mod.h"
 
 #define VMODE 0                 // Video Mode : 0 : NTSC, 1: PAL
 #define SCREENXRES 320          // Screen width
@@ -34,9 +28,11 @@ char primbuff[2][32768];     // double primitive buffer of length 32768 * 8 =  2
 char *nextpri = primbuff[0];       // pointer to the next primitive in primbuff. Initially, points to the first bit of primbuff[0]
 short db = 1;                    // index of which buffer is used, values 0, 1
 
-STR menu[2] = {
+STR menu[4] = {
     { "\\MENU.STR;1", 256, 240, 30, 0, 0 },
     { "\\MENU.STR;1", 256, 240, 30, 1, 0 },
+    { "\\MENU1.STR;1", 256, 240, 30, 0, 0 },
+    { "\\MENU1.STR;1", 256, 240, 30, 1, 0 },
 };
 STR * curStr;
 StHEADER * sectorHeader;
@@ -157,21 +153,51 @@ void drawBG(void)
 }
 void checkPad(void)
 {
-    u_short pad;
+    u_short pad = 0;
     static u_short oldPad;    
     pad = PadRead(0);
 
     if ( pad & PADLleft && !(oldPad & PADLleft) )
     {
         // Channel 1 is transition anim, only take input when !transition
-        if(curStr->channel != 1)
+        if ( curStr == &menu[IDLE] )
         {
-            ramsyscall_printf("Left: change channel\n");
-            switchStrCh(&curStr);
-            oldPad = pad;
+            ramsyscall_printf("Left\n");
+            // Switch sound
+            MOD_PlayNote(23, 12, 15, 63);
+            switchStr(&curStr, LEFT);
         }
+        oldPad = pad;
     }
     if ( !(pad & PADLleft) && oldPad & PADLleft )
+    {
+        oldPad = pad;
+    }
+    // Right
+    if ( pad & PADLright && !(oldPad & PADLright) )
+    {
+        // Channel 1 is transition anim, only take input when !transition
+        if( curStr == &menu[IDLE] )
+        {
+            ramsyscall_printf("Right\n");
+            // Switch sound
+            MOD_PlayNote(23, 12, 15, 63);
+            switchStr(&curStr, RIGHT);
+        }
+        oldPad = pad;
+    }
+    if ( !(pad & PADLright) && oldPad & PADLright )
+    {
+        oldPad = pad;
+    }
+    // Cross button
+    if ( pad & PADRdown && !(oldPad & PADRdown) )
+    {
+        // Select sound
+        MOD_PlayNote(22, 7, 15, 63);
+        oldPad = pad;
+    }
+    if ( !(pad & PADRdown) && oldPad & PADRdown )
     {
         oldPad = pad;
     }
@@ -191,9 +217,11 @@ int main() {
     initSTR(curStr); 
     // Set Channel
     StSetChannel( curStr->channel );
+    // Mod Playback
+    loadMod();
+    startMusic();
     // Main loop
     while (1) 
-    //~ while (VSync(-1)) 
     {
         // Only display background STR if drawMenu is set
         if (drawMenu)
@@ -228,3 +256,4 @@ int main() {
     }
     return 0;
 }
+

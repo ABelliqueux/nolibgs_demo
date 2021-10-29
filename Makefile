@@ -10,5 +10,8 @@ TARGET = hello_str
 
 SRCS = hello_str.c \
 src/str.c \
+src/mod.c \
+third_party/nugget/modplayer/modplayer.c \
+HIT/SHIN1.HIT \
 
 include common.mk 
