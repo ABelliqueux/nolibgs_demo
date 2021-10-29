@@ -1,8 +1,4 @@
-// Stream a STR file from CD, decompress and play it.
-// Schnappy 07-2021
-// based on Lameguy64 strplay library : http://www.psxdev.net/forum/viewtopic.php?t=507
-// Original PsyQ sample code : /psyq/addons/cd/MOVIE
-// Video to STR conversion : https://github.com/ABelliqueux/nolibgs_hello_worlds/tree/main/hello_str
+// The nolibgs 2021 demo disc !
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -13,8 +9,6 @@
 #include <libcd.h>
 // CODEC library
 #include <libpress.h>
-// printf
-//~ #include "../nolibgs_hello_worlds/thirdparty/nugget/common/syscalls/syscalls.h"
 // str playback
 #include "src/str.h"
 #include "src/mod.h"
