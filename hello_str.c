@@ -7,6 +7,7 @@
 #define printf ramsyscall_printf
 #define DBG_FNTX 32
 #define DBG_FNTY 200
+//#define DEBUG
 DISPENV disp[2];                 // Double buffered DISPENV and DRAWENV
 DRAWENV draw[2];
 char primbuff[2][32768];         // double primitive buffer of length 32768 * 8 =  262.144 bits / 32,768 Kbytes
@@ -405,8 +406,10 @@ int main() {
             t = 0;
         }
         t++;
-        FntPrint(0, "Mothership:  %d\nOvl: %d %d %d\n%x %x %x\nstr x: %d", t, prev_overlay, next_overlay, curItem, nextpri, primbuff[0], primbuff[1], curStr->x);
-        FntFlush(0);
+        #ifdef DEBUG
+            FntPrint(0, "Mothership:  %d\nOvl: %d %d %d\n%x %x %x\nstr x: %d", t, prev_overlay, next_overlay, curItem, nextpri, primbuff[0], primbuff[1], curStr->x);
+            FntFlush(0);
+        #endif
         display();
     }
     return 0;

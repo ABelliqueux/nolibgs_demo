@@ -40,6 +40,8 @@ make cleansub
 ``` 
 will clean the current directory
 
+**Make sure to `make clean` before trying to compile again, or you will have errors showing up.**  
+
 ##  Creating the disk image
 
 ```bash
