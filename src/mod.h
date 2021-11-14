@@ -3,6 +3,7 @@
 #include <libspu.h>
 #include "../third_party/nugget/common/hardware/hwregs.h"
 #include "../third_party/nugget/common/hardware/irq.h"
+#include "../third_party/nugget/common/hardware/spu.h"
 #include "../third_party/nugget/common/syscalls/syscalls.h"
 #define printf ramsyscall_printf
 
@@ -12,6 +13,7 @@ extern const uint8_t _binary_HIT_SHIN1_HIT_start[];
 #define HITFILE _binary_HIT_SHIN1_HIT_start
 extern long musicEvent;
 
+void spuMute();
 void loadMod();
 void startMusic();
 void pauseMusic();

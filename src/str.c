@@ -16,7 +16,7 @@ u_short ImgBuff[ 16 * SCREENYRES];
 u_long * curVLCptr = &VlcBuff[0];
 u_short * curIMGptr = &ImgBuff[0];
 
-void loadCdFile(STR * str)
+static void loadCdFile(STR * str)
 {
     if ( CdSearchFile(&STRfile, str->name) == 0 ) {
         FntPrint("File not found :%s\n", str->name);
@@ -30,21 +30,20 @@ void initSTR(STR * str)
 {
     DecDCTReset(0);
     StSetRing(RingBuff, RING_SIZE);
-    StSetStream(0, 1, str->length, 0, 0);
+    StSetMask(0, 1, str->length);
+    //~ StSetStream(0, 1, str->length, 0, 0);
     // Set CD mode to CdlModeSpeed
     CdControl(CdlSetmode, &param, 0);
     loadCdFile(str);
 }
 
-void stopSTR()
+void stopSTR(STR * str)
 {
-    // Disable callback
-    DecDCToutCallback(0);
+    StSetMask(1, 1, str->length);
+    //~ DecDCToutCallback(0);
     DecDCTReset(1);
-    // Release two interrupt functions CdDataCallback() and CdReadyCallback() hooked by CDRead2()
-    StUnSetRing();
-    // Put CDROM on pause at current position
-    //~ CdControlB(CdlPause, 0, 0);
+    StClearRing();
+    //~ StUnSetRing();
 }
 void resetSTR(STR * str)
 {
@@ -76,7 +75,7 @@ void playSTR(STR ** str)
     RECT curSlice = { STR_POS_X, 
                       STR_POS_Y,
                       16,
-                      (*str)->y};
+                      (*str)->y };
     int frameDone = 0;
     // Reset counter
     int wait = WAIT_TIME;
@@ -85,14 +84,16 @@ void playSTR(STR ** str)
         // Begin decoding RLE-encoded MDEC image data
         DecDCTin( curVLCptr , DCT_MODE);
         // Prepare to receive the decoded image data from the MDEC
-        while (curSlice.x < ( STR_POS_X + (*str)->x ) )
+        while ( curSlice.x < ( STR_POS_X + (*str)->x ) )
         {
-            // Receive decoded data : a 16*ppw*240 px slice 
+            // Receive decoded data : a 16*ppw*240 px slice in long word (4B), so / 2
             DecDCTout( (u_long *) curIMGptr, curSlice.w * curSlice.h / 2);
             // Wait for transfer end
-            DecDCToutSync(1);
+            DecDCToutSync(0);
             // Transfer data from main memory to VRAM
             LoadImage(&curSlice, (u_long *) curIMGptr );
+            // Wait for drawing to terminate
+            DrawSync(0);
             // Increment drawArea's X with slice width (16 or 24 pix)
             curSlice.x += 16;
         }
@@ -138,7 +139,7 @@ void playSTR(STR ** str)
             curSlice.y = STR_POS_Y;
         }
     }
-   // If the current frame's number is bigger than the number of frames in STR,
+    // If the current frame's number is bigger than the number of frames in STR,
     // set the endPlayback flag.
     if ( sectorHeader->frameCount >= ((*str)->length - 1) )
     {

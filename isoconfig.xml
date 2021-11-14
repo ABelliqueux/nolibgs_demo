@@ -13,7 +13,7 @@
         cue_sheet   - Optional, file name of the cue sheet for the image file
                       (required if more than one track is specified).
 -->
-<iso_project image_name="hello_str.bin" cue_sheet="hello_str.cue">
+<iso_project image_name="nolibgs_demo.bin" cue_sheet="nolibgs_demo.cue">
 
     <!-- <track>
             Specifies a track to the ISO project. This example element creates a data
@@ -46,8 +46,8 @@
         <identifiers
             system          ="PLAYSTATION"
             application     ="PLAYSTATION"
-            volume          ="HELOCD"
-            volume_set      ="HELOCD"
+            volume          ="NOLIBGS"
+            volume_set      ="NOLIBGS"
             publisher       ="SCHNAPPY"
             data_preparer       ="MKPSXISO"
         />
@@ -85,12 +85,16 @@
             -->
             <!-- Stores system.txt as system.cnf -->
             <file name="system.cnf" type="data" source="system.cnf"/>
-            <file name="SCES_313.37"   type="data" source="hello_str.ps-exe"/>
+            <file name="SCES_313.37"   type="data" source="nolibgs_demo.ps-exe"/>
             <file name="MENU.STR" type="str" source="STR/menu.str"/>
             <file name="MENU1.STR" type="str" source="STR/menu1.str"/>
             <file name="POLY.OVL"   type="data" source="Overlay.ovly0"/>
             <file name="TILE.OVL"   type="data" source="Overlay.ovly1"/>
             <file name="HELLO.OVL"   type="data" source="Overlay.ovly2"/>
+            <file name="SPRT.OVL"   type="data" source="Overlay.ovly3"/>
+            <file name="CUBTX.OVL"   type="data" source="Overlay.ovly4"/>
+            <file name="CUBLT.OVL"   type="data" source="Overlay.ovly5"/>
+            <file name="PAD.OVL"   type="data" source="Overlay.ovly6"/>
 
             <dummy sectors="1024"/>
             

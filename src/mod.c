@@ -7,6 +7,13 @@ typedef struct SpuVoiceVolume {
 
 SpuVoiceVolume volumeState[24] = {0};
 
+void spuMute() {
+    SPU_REVERB_RIGHT = 0;
+    SPU_REVERB_LEFT = 0;
+    SPU_VOL_MAIN_RIGHT = 0;
+    SPU_VOL_MAIN_LEFT = 0;
+}
+
 static void muteSPUvoices() {
   for (unsigned i = 0; i < 24; i++) {
     // Store current volume
@@ -27,6 +34,7 @@ static void restoreSPUvoices() {
 void loadMod() {
     printf("Loading MOD:\'%s\'\n", HITFILE);
     MOD_Load((struct MODFileFormat*)HITFILE);
+    MOD_SetMusicVolume(8<<8);
     printf("%02d Channels, %02d Orders\n", MOD_Channels, MOD_SongLength);
 }
 

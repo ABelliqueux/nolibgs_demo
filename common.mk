@@ -37,8 +37,7 @@ LDFLAGS += -ltap
 LDFLAGS += -lcd
 LDFLAGS += -Wl,--end-group
 
-
-include $(THISDIR)../nolibgs_hello_worlds/thirdparty/nugget/common.mk
+include $(THISDIR)third_party/nugget/common.mk
 
 define OBJCOPYME
 $(PREFIX)-objcopy -I binary --set-section-alignment .data=4 --rename-section .data=.rodata,alloc,load,readonly,data,contents -O $(FORMAT) -B mips $< $@

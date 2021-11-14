@@ -5,14 +5,15 @@
 #include "src/mod.h"
 #include "third_party/nugget/common/syscalls/syscalls.h"
 #define printf ramsyscall_printf
-
+#define DBG_FNTX 32
+#define DBG_FNTY 200
 DISPENV disp[2];                 // Double buffered DISPENV and DRAWENV
 DRAWENV draw[2];
 char primbuff[2][32768];         // double primitive buffer of length 32768 * 8 =  262.144 bits / 32,768 Kbytes
 u_long ot[2][OTLEN];             // double ordering table of length 8 * 32 = 256 bits / 32 bytes
-char *nextpri = primbuff[0];     // pointer to the next primitive in primbuff. Initially, points to the first bit of primbuff[0]
+char * nextpri = primbuff[0];     // pointer to the next primitive in primbuff. Initially, points to the first bit of primbuff[0]
 uint8_t db = 1;                    // index of which buffer is used, values 0, 1
-
+RECT tw = {0,0,0,0};
 // STR playback
 STR menu[4] = {
     { "\\MENU.STR;1", 256, 240, 30, 0, 0 },
@@ -22,7 +23,7 @@ STR menu[4] = {
 };
 STR * curStr;
 StHEADER * sectorHeader;
-uint8_t drawMenu = 0;
+int8_t drawMenu = 0;
 u_long * nextFrame = 0;
 // Ring buffer frame address
 u_long * frameAddr = 0;
@@ -35,41 +36,69 @@ typedef struct OVERLAY {
   int (*main)();
   char commandline[0x180];
   char title[0xc];
+  CVECTOR BGcolor;
 } OVERLAY;
 
 int ovl_main_hello();
 int ovl_main_tile();
 int ovl_main_poly();
+int ovl_main_sprt();
+int ovl_main_cubetex();
+int ovl_main_light();
+int ovl_main_pad();
 
 OVERLAY menu_items[] = {
-    {"\\HELLO.OVL;1", ovl_main_hello, "", "HELLO WORLD!"},
-    {"\\TILE.OVL;1", ovl_main_tile, "", "HELLO TILE!"},
-    {"\\POLY.OVL;1", ovl_main_poly, "", "HELLO POLY!"},
+    {"\\HELLO.OVL;1", ovl_main_hello, "",   "HELLO WORLD!", { 225, 220, 40 } },
+    {"\\TILE.OVL;1",  ovl_main_tile, "",    "HELLO TILE! ", { 150, 30 , 40 } },
+    {"\\POLY.OVL;1",  ovl_main_poly, "",    "HELLO POLY! ", { 60 , 127, 0  } },
+    {"\\SPRT.OVL;1",  ovl_main_sprt, "",    "HELLO SPRT! ", { 0  , 108, 255 } },
+    {"\\CUBTX.OVL;1", ovl_main_cubetex, "", "HELLO CUBE! ", { 255  , 200, 0 } },
+    {"\\CUBLT.OVL;1", ovl_main_light, "",   "HELLO LIGHT!", { 16 , 90 , 110 } },
+    {"\\PAD.OVL;1",   ovl_main_pad, "",     "HELLO PAD!  ", { 100, 40 , 140 } },
 };
+int curItem = 0;
+#define MAX_ITEMS 6
+int timeout = 200;
 
 enum OverlayNumber next_overlay = MOTHERSHIP;
 enum OverlayNumber prev_overlay = MOTHERSHIP;
 
-CVECTOR BGcolor = { 24, 108, 76 };
-uint8_t loadOVL = 0;
+CVECTOR BGcolor, MScolor = { 24, 108, 76 };
+uint8_t Xpressed = 0;
 
 // FONT COLOR
 CVECTOR fntColor = { 115, 215, 45 };
 CVECTOR fntColorBG = { 0, 0, 0 };
 
-// FUNCTIONS
+uint8_t useOT = 0;
+int CDreadOK = 0;
 
+// FUNCTIONS
+void LoadTexture(u_long * tim, TIM_IMAGE * tparam);
 void FntColor(CVECTOR fgcol, CVECTOR bgcol );
 void init(void);
 void display(void);
 void drawBG(void);
 void checkPad(void);
+void clearVRAM(void);
 int loadOverlayAndStart(OVERLAY *);
-void EmptyOTag(u_long ot[2][OTLEN], char  primbuff[2][32768], char * nextpri );
+void EmptyOTag(u_long ot[2][OTLEN]);
+void EmptyPrimBuf(char primbuff[2][32768], char ** nextpri);
+void preInitOvl(OVERLAY * overlay);
+void postInitOvl(OVERLAY * overlay);
 
 void (*dispp) (void);
 
-int CDreadOK = 0;
+void LoadTexture(u_long * tim, TIM_IMAGE * tparam){   
+        OpenTIM(tim);                                 
+        ReadTIM(tparam);                              
+        LoadImage(tparam->prect, tparam->paddr);      
+        DrawSync(0);                                  
+        if (tparam->mode & 0x8){ // check 4th bit     
+            LoadImage(tparam->crect, tparam->caddr);  
+            DrawSync(0);                              
+    }
+}
 
 void FntColor(CVECTOR fgcol, CVECTOR bgcol )
 {
@@ -108,11 +137,18 @@ void init(void)
     setRGB0(&draw[1], BGcolor.r, BGcolor.g, BGcolor.b); // set color for second draw area
     draw[0].isbg = 1;               // set mask for draw areas. 1 means repainting the area with the RGB color each frame 
     draw[1].isbg = 1;
+    draw[0].dfe = 0;               // set mask for draw areas. 1 means repainting the area with the RGB color each frame 
+    draw[1].dfe = 0;
+    draw[0].dtd = 1;
+    draw[1].dtd = 1;
     PutDispEnv(&disp[db]);          // set the disp and draw environnments
     PutDrawEnv(&draw[db]);
     FntLoad(FONTX, FONTY);                // Load font to vram at 960,0(+128)
-    //~ FntOpen(106, 166, 48, 20, 0, 12 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
-    FntOpen(106, 166, 248, 120, 0, 120 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    // Debug text
+    FntOpen(DBG_FNTX, DBG_FNTY, 256, 120, 0, 220 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    // Menu text
+    FntOpen(106, 166, 48, 20, 0, 12 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    // Change font color
     FntColor(fntColor, fntColorBG);
 }
 void display(void)
@@ -121,153 +157,188 @@ void display(void)
     VSync(0);                       // Wait for the next vertical blank
     PutDispEnv(&disp[db]);          // set alternate disp and draw environnments
     PutDrawEnv(&draw[db]);  
-    DrawOTag(&ot[db][OTLEN - 1]);
+    if (useOT) { DrawOTag(&ot[db][OTLEN - 1]); }
     db = !db;
-    nextpri = primbuff[db];                 // flip db value (0 or 1)
+    if (useOT) { nextpri = primbuff[db];  }               // flip db value (0 or 1)
 }
 void drawBG(void)
 {
-    POLY_FT4 *poly = {0};                           // pointer to a POLY_G4 
-    SVECTOR RotVector = {0, 0, 0};                  // Initialize rotation vector {x, y, z}
-    VECTOR  MovVector = {0, 0, CENTERX/2, 0};               // Initialize translation vector {x, y, z, pad}
-    
-    SVECTOR VertPos[4] = {                          // Set initial vertices position relative to 0,0 - see here : https://psx.arthus.net/docs/poly_f4.jpg
-            {-CENTERX/2, -CENTERY/2, 1 },                         // Vert 1 
-            {-CENTERX/2,  CENTERY/2, 1 },                         // Vert 2
-            { CENTERX/2, -CENTERY/2, 1 },                         // Vert 3
-            { CENTERX/2,  CENTERY/2, 1  }                         // Vert 4
-        };                                          
-    MATRIX PolyMatrix = {0};                   
-    long polydepth;
-    long polyflag;
+    POLY_FT4 * poly = 0;                           // pointer to a POLY_G4     
     ClearOTagR(ot[db], OTLEN);
+    
     poly = (POLY_FT4 *)nextpri;                    // Set poly to point to  the address of the next primitiv in the buffer
     // Set transform matrices for this polygon
-    RotMatrix(&RotVector, &PolyMatrix);           // Apply rotation matrix
-    TransMatrix(&PolyMatrix, &MovVector);         // Apply translation matrix   
-    SetRotMatrix(&PolyMatrix);                    // Set default rotation matrix
-    SetTransMatrix(&PolyMatrix);                  // Set default transformation matrix        
     setPolyFT4(poly);                             // Initialize poly as a POLY_F4 
     poly->tpage = getTPage(2,0,STR_POS_X, STR_POS_Y);
-    setRGB0(poly, 128, 128, 128);                 // Set poly color (neutra here)
-    RotTransPers4(
-                &VertPos[0],      &VertPos[1],      &VertPos[2],      &VertPos[3],
-                (long*)&poly->x0, (long*)&poly->x1, (long*)&poly->x2, (long*)&poly->x3,
-                &polydepth,
-                &polyflag
-                );                                 // Perform coordinate and perspective transformation for 4 vertices
+    setRGB0(poly, 128, 128, 128);                 // Set poly color (neutral here)
+    setXY4(poly, 
+            0, 0,
+            0, SCREENYRES,
+            SCREENXRES, 0,
+            SCREENXRES, SCREENYRES);
     setUV4(poly, 0, 0,
                  0, 240,
                  255, 0,
-                 255, 240);  // Set UV coordinates in order Top Left, Bottom Left, Top Right, Bottom Right 
-    addPrim(ot[db], poly);                         // add poly to the Ordering table        
-    nextpri += sizeof(POLY_FT4);                    // increment nextpri address with size of a POLY_F4 struct 
+                 255, 240);                     // Set UV coordinates in order Top Left, Bottom Left, Top Right, Bottom Right 
+    addPrim(ot[db][OTLEN-1], poly);                      // add poly to the Ordering table        
 }
 void clearVRAM(void)
 {
     RECT vram = {0,0,1024,512};
     ClearImage(&vram,0,0,0);
 }
+
+void preInitOvl(OVERLAY * overlay)
+{
+    //~ clearVRAM();
+    ResetCallback();
+    ResetGraph(3);
+    EmptyPrimBuf(primbuff, &nextpri);
+    EmptyOTag(&ot[db]);
+    setRGB(&BGcolor, overlay->BGcolor.r, overlay->BGcolor.g, overlay->BGcolor.b );
+}
+void postInitOvl(OVERLAY * overlay)
+{
+    clearVRAM();
+    //~ ResetGraph(3);
+    EmptyPrimBuf(primbuff, &nextpri);
+    EmptyOTag(&ot[db]);
+    setRGB(&BGcolor, MScolor.r, MScolor.g, MScolor.b);
+    setRGB0(&draw[0], BGcolor.r, BGcolor.g, BGcolor.b); // set color for first draw area
+    setRGB0(&draw[1], BGcolor.r, BGcolor.g, BGcolor.b);
+    FntLoad(FONTX, FONTY);                // Load font to vram at 960,0(+128)
+    FntOpen(DBG_FNTX, DBG_FNTY, 256, 120, 0, 220 ); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    // Menu text
+    FntOpen(106, 166, 48, 20, 0, 12); // FntOpen(x, y, width, height,  black_bg, max. nbr. chars
+    // Change font color
+    FntColor(fntColor, fntColorBG);
+}
 int loadOverlayAndStart(OVERLAY * overlay)
 {
     int CDreadResult = 0;
     int next_ovl = -1;
-    // Load overlay file
+    // Load overlay file from CD
     CDreadResult = CdReadFile(overlay->filename, &load_all_overlays_here, 0);
 	CdReadSync(0, 0);
-    printf( "CD read: %d", CDreadResult);
+    printf(0,"CD read: %d", CDreadResult);
     // If file loaded sucessfully
     if (CDreadResult)
     {
-        clearVRAM();
-        //~ StopCallback(); 
-        ResetGraph(3);
-        // Execute
+        // Pre OVL
+        preInitOvl(overlay);
+        // Exec OVL
         next_ovl = overlay->main();
-        EmptyOTag(&ot[db], &primbuff[db], nextpri);
-        setRGB(&BGcolor, 0, 150, 255);
-        init();
+        // Post OVL
+        postInitOvl(overlay);
     }
     return next_ovl;
 }
-void EmptyOTag(u_long ot[2][OTLEN], char primbuff[2][32768], char * nextpri )
+//~ void EmptyOTag(u_long ot[2][OTLEN], char * primbuff, char ** nextpri )
+void EmptyPrimBuf(char primbuff[2][32768], char ** nextpri)
+{
+    for(uint16_t p; p < 32768; p++)
+    {
+        primbuff[0][p] = 0;
+        primbuff[1][p] = 0;
+    }
+    *nextpri = primbuff[0];
+}
+void EmptyOTag(u_long ot[2][OTLEN])
 {
     for (uint16_t p; p < OTLEN; p++)
     {
         ot[0][p] = 0;
         ot[1][p] = 0;
     }
-    nextpri = primbuff[!db];
 }
 void checkPad(void)
 {
     u_long pad = 0;
     static u_long oldPad;    
     pad = PadRead(0);
-
-    if ( pad & PADLleft && !(oldPad & PADLleft) )
-    {
-        // Channel 1 is transition anim, only take input when !transition
-        if ( curStr == &menu[IDLE] )
+    
+    if (drawMenu){
+        if ( pad & PADLleft && !(oldPad & PADLleft) )
         {
-            ramsyscall_printf("Left\n");
-            // Switch sound
-            MOD_PlayNote(23, 12, 15, 63);
-            switchStr(&curStr, LEFT);
+            // Channel 1 is transition anim, only take input when !transition
+            if ( curStr == &menu[IDLE] )
+            {
+                ramsyscall_printf("Left\n");
+                // Switch sound
+                MOD_PlayNote(22, 12, 15, 63);
+                switchStr(&curStr, LEFT);
+                if ( curItem < MAX_ITEMS ){
+                    curItem++;
+                } else {
+                    curItem = 0;
+                }
+                ramsyscall_printf("curItem: %d\n", curItem);
+            }
+            oldPad = pad;
         }
-        oldPad = pad;
-    }
-    if ( !(pad & PADLleft) && oldPad & PADLleft )
-    {
-        oldPad = pad;
-    }
-    // Right
-    if ( pad & PADLright && !(oldPad & PADLright) )
-    {
-        // Channel 1 is transition anim, only take input when !transition
-        if( curStr == &menu[IDLE] )
+        if ( !(pad & PADLleft) && oldPad & PADLleft )
         {
-            ramsyscall_printf("Right\n");
-            // Switch sound
-            MOD_PlayNote(23, 12, 15, 63);
-            switchStr(&curStr, RIGHT);
+            oldPad = pad;
         }
-        oldPad = pad;
+        // Right
+        if ( pad & PADLright && !(oldPad & PADLright) )
+        {
+            // Channel 1 is transition anim, only take input when !transition
+            if( curStr == &menu[IDLE] )
+            {
+                ramsyscall_printf("Right\n");
+                // Switch sound
+                MOD_PlayNote(23, 12, 15, 63);
+                switchStr(&curStr, RIGHT);
+                if ( curItem > 0 ){
+                    curItem--;
+                } else {
+                    curItem = MAX_ITEMS;
+                }
+                ramsyscall_printf("curItem: %d\n", curItem);
+            }
+            oldPad = pad;
+        }
+        if ( !(pad & PADLright) && oldPad & PADLright )
+        {
+            oldPad = pad;
+        }
     }
-    if ( !(pad & PADLright) && oldPad & PADLright )
-    {
-        oldPad = pad;
-    }
-    // Cross button
-    if ( pad & PADRdown && !(oldPad & PADRdown) )
-    {
-        // Select sound
-        MOD_PlayNote(22, 7, 15, 63);
-        //~ stopSTR();
-        //~ stopMusic();
-        //~ drawMenu = 0;
-        //~ next_overlay = OVERLAY_HELLO;
-        //~ next_overlay = OVERLAY_HELLO;
-        //~ prev_overlay = next_overlay;
-        //~ next_overlay = loadOverlayAndStart(&menu_items[next_overlay]);
-        oldPad = pad;
-    }
-    if ( !(pad & PADRdown) && oldPad & PADRdown )
-    {
-        oldPad = pad;
-    }
+        // Cross button
+        if ( pad & PADRdown && !(oldPad & PADRdown) )
+        {
+            Xpressed = 1;
+            oldPad = pad;
+        }
+        if ( !(pad & PADRdown) && oldPad & PADRdown )
+        {
+            Xpressed = 0;
+            oldPad = pad;
+        }
+        if ( pad & PADstart && !(oldPad & PADstart) )
+        {
+            drawMenu = !drawMenu;
+            oldPad = pad;
+        }
+        if ( !(pad & PADstart) && oldPad & PADstart )
+        {
+            oldPad = pad;
+        }
+    
 }
 int main() {
     int t = 0;
     // STR
     curStr = &(menu[0]);
-    // Set pointers to the relevant buffer addresses
-    u_long * curVLCptr = &VlcBuff[0];
-    u_short * curIMGptr = &ImgBuff[0];
     // OVL
     prev_overlay = next_overlay; 
-    
+    // Set bg color
+    setRGB(&BGcolor, MScolor.r, MScolor.g, MScolor.b);
+    // Mute spu to get rid of startup sound
+    spuMute();
+    // Init display
     init();
+    // Init input
     PadInit(0);
     VSyncCallback(checkPad);
     // Init CDrom system
@@ -282,13 +353,16 @@ int main() {
     // Main loop
     while (1) 
     {
-        //~ // Only display background STR if drawMenu is set
-        if (drawMenu)
-        {               
-            //~ SetDispMask(1);
+        // Only display background STR if drawMenu is set
+        if (drawMenu = 1)
+        {
+            useOT = 1;
+            // Draw menu prim once
             drawBG();
+            drawMenu = -1;
+
         }
-        //~ // While end of str is not reached, play it
+        // While end of str is not reached, play it
         if (curStr->endPlayback == 1 && next_overlay == MOTHERSHIP )
         {   
             // Replay STR
@@ -297,35 +371,42 @@ int main() {
         if ( curStr->endPlayback == 0 )
         {   
             playSTR(&curStr);
-            //~ if ( !curStr->channel && drawMenu )
-            //~ {
-                //~ // Display title
-                //~ FntPrint("%s", menu_items[0].title);
-                //~ // Flickering text
-                //~ if ( sectorHeader->frameCount > 5 )
-                //~ {
-                    //~ FntFlush(-1);
-                //~ } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
-                //~ {
-                    //~ FntFlush(-1);
-                //~ }
-            //~ }
+            if ( curStr->channel != 1 && drawMenu )
+            {
+                // Display title
+                FntPrint(1, "%s", menu_items[curItem].title);
+                // Flickering text
+                if ( sectorHeader->frameCount > 5 )
+                {
+                    FntFlush(1);
+                } else if ( (sectorHeader->frameCount % 2) && sectorHeader->frameCount < 5 )
+                {
+                    FntFlush(1);
+                }
+                // If the cross button is pressed
+                if( Xpressed ) {
+                    // If we're on the menu, animate menu
+                    if ( next_overlay == MOTHERSHIP ){
+                        // Select sound
+                        MOD_PlaySoundEffect(22, 7, 15, 63);
+                        drawMenu = 0;
+                        curStr->endPlayback = 1;
+                        stopSTR(curStr);
+                        useOT = 0;
+                        next_overlay = curItem;
+                    }
+                }
+            }
         }
-        //~ display();
-        if (t == 100){
-            drawMenu = 0;
-            curStr->endPlayback = 1;
-            stopSTR();
-            next_overlay = OVERLAY_HELLO;
-        }
-        if (next_overlay != -1 && next_overlay != prev_overlay){
+        // If next overlay is not current overlay, load it
+        if (next_overlay != MOTHERSHIP ){
             prev_overlay = next_overlay;
             next_overlay = loadOverlayAndStart(&menu_items[next_overlay]);
             t = 0;
         }
         t++;
-        FntPrint("Mothership:  %d\nOvl: %d %d", t, prev_overlay, next_overlay);
-        FntFlush(-1);
+        FntPrint(0, "Mothership:  %d\nOvl: %d %d %d\n%x %x %x\nstr x: %d", t, prev_overlay, next_overlay, curItem, nextpri, primbuff[0], primbuff[1], curStr->x);
+        FntFlush(0);
         display();
     }
     return 0;
