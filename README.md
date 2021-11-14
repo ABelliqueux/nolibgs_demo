@@ -15,6 +15,10 @@ Separate examples for these features are available here :
   * [https://github.com/ABelliqueux/nolibgs_hello_worlds/tree/main/hello_mod](https://github.com/ABelliqueux/nolibgs_hello_worlds/tree/main/hello_mod)  
   * [https://github.com/ABelliqueux/nolibgs_hello_worlds/tree/main/hello_ovl_exec](https://github.com/ABelliqueux/nolibgs_hello_worlds/tree/main/hello_ovl_exec)  
 
+## Pre-requisites
+
+This project uses a nugget + PsyQ setup. Instructions for setting that up on your computer are available here : [https://github.com/ABelliqueux/nolibgs_hello_worlds/#installation](https://github.com/ABelliqueux/nolibgs_hello_worlds/#installation)  
+
 ## Cloning this repo
 
 Clone recursively as we're using a submodule:
